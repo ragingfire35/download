@@ -13,15 +13,20 @@ class Http : public QObject
 public:
 	Http();
 	~Http();
+private:
+	void Finished(QNetworkReply *reply);
+	void IsContinue(QString title,QNetworkReply *reply);
 public slots:
 	void metaDataChanged();
-	void httpDownload(QObject* parent,QString& strurl, QString& dir, QString& rdir);
+	void httpDownload(QObject* parent,QString& strurl, QString& dir, QString& rdir, QString& uType);
 	void replyFinished(QNetworkReply*reply);
 	void onDownloadProgress(qint64 bytesSent, qint64 bytesTotal);
-	void onReadyRead();
+	void onReadyRead();	
 private:
 	bool hasInit=false;
-	QString mdir;
+	QString mrdir;
+	QString savedir;
+	QString finalUrl;
 	QObject * mparent;
 	QFile *file;
 	QFileInfo fileInfo;

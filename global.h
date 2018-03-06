@@ -4,14 +4,20 @@
 #include <QtGlobal>
 #include <QDebug>
 
-//const QString domain = "http://tian.cow8.cn/";
-const QString domain = "http://biaoqian.cn/";
-const QString expire = "20180301";
+const QString domain = "http://tian.cow8.cn/";
+//const QString domain = "http://biaoqian.cn/";
+const QString expire = "20180401";
 const QString advuri = "adv/adv.php";
-const QString DOWN_FILE = "/download.php";
+const QString DOWN_FILE = "download.php";
 const QString UPDATE_TXT = "update.txt";
 
-
+enum HASH_COMPARE
+{	
+	HASH_PARAM_ERROR=1,
+	HASH_SERVER_NO_FILE=2,
+	HASH_EQUAL = 3,//don't need download.
+	HASH_WILL_DOWNLOAD=4
+};
 
 class FileObj {
 public:

@@ -422,14 +422,15 @@ void download::StartDownloadNew() {
 
 void download::UpdateFileNew()
 {
-	if (0 != update_fileList.size()) {
-		FileObj* item = update_fileList.at(0);
-		update_fileList.pop_front();
+	if (0 != newupdate_list.size()) {
+		FileObj* item = newupdate_list.at(0);
+		newupdate_list.pop_front();
 
 		Http* pd = new Http();//need delete.
-		QString rurl = QString(domain) + line_utype + "/" + item->rdir;
+		//QString rurl = QString(domain) + line_utype + "/" + item->rdir;
+		QString durl = QString(domain) + DOWN_FILE;
 		QString fdir = cur_panfu + ":/" + item->rdir;
-		pd->httpDownload(this, rurl, fdir, item->rdir);
+		pd->httpDownload(this, durl, fdir, item->rdir, line_utype);
 	}
 	//	qDebug() << item->rdir;
 	//}
@@ -644,22 +645,30 @@ bool download::RemoveLst(QList<FileObj*>& lst, QString dir) {
 	return true;
 }
 
-QString download::DownloadSize(qint64 size) {
-	has_down_size += size;
-	ui.update_progressBar->setValue( has_down_size );
-	return "";
-}
+//QString download::DownloadSize(qint64 size) {
+//	has_down_size += size;
+//	ui.update_progressBar->setValue( has_down_size );
+//	return "";
+//}
 
+//QString download::FinishedOneDownload(QString rdir) {
+//
+//	return "";
+//}
 QString download::HttpSuccessCallBack(QString dir) {
 
-	if (true == IsInLst(update_fileList,dir)) {
-		RemoveLst(update_fileList,dir);
+	if (true == IsInLst(newupdate_list,dir)) {
+		RemoveLst(newupdate_list,dir);
 	}
-	if (0 == update_fileList.size()) {		
+	if (0 == newupdate_list.size()) {
 		orderfile();
+		ui.update_progressBar->setRange(0, 100);
+		ui.update_progressBar->setValue(100);
 		QMessageBox::information(NULL, "更新", "成功更新完毕！", QMessageBox::Yes | QMessageBox::No);
 	}
 	else {
+		//change progress
+		ui.update_progressBar->setValue( totalNum - newupdate_list.size() );
 		UpdateFileNew();
 	}
 	return "";
@@ -687,34 +696,38 @@ void download::DealUpdateTxt(QString str) {
 					else if (job.isObject()) {
 						QJsonObject jobj =	job.toObject();
 						QString refdir, subfix;
-						int startnum, endnum;
+						int startnum, endnum=0;
 
 						if (jobj.contains("refdir")) {
 							QJsonValue value = jobj.value("refdir");
 							if (value.isString()) {
 								refdir = value.toString();
 							}	
-						}else if (jobj.contains("startnum")) {
+						}
+						if (jobj.contains("startnum")) {
 							QJsonValue value = jobj.value("startnum");
 							if (value.isDouble()) {
 								startnum = value.toInt();
 							}
 						}
-						else if (jobj.contains("endnum")) {
+						if (jobj.contains("endnum")) {
 							QJsonValue value = jobj.value("endnum");
-							if ( value.isString() ) {
+							if ( value.isDouble() ) {
 								endnum = value.toInt();
 							}
 						}
-						else if (jobj.contains("subfix")) {
+						if (jobj.contains("subfix")) {
 							QJsonValue value = jobj.value("subfix");
 							if (value.isString()) {
 								subfix = value.toString();
 							}
 						}
 						//add to list
-						for (int j = startnum; j <= startnum;j++) {
-							QString dir = QString("%1%2%3%").arg(refdir).arg(j).arg(subfix);
+						for (int j = startnum; j <= endnum;j++) {
+							QString dir = QString("%1%2%3").arg(refdir).arg(j).arg(subfix);
+							FileObj *obj = new FileObj();
+							obj->rdir = dir;
+							newupdate_list.append(obj);
 						}
 					}
 				}
@@ -732,7 +745,8 @@ void download::GetUpdateTxt() {
 	QString rurl = QString(domain) + line_utype + "/"+ UPDATE_TXT;
 	QUrl url(rurl);
 	qDebug() << "querurl:" << rurl;
-	QNetworkReply* reply = namUpload->post(QNetworkRequest(url), js.toUtf8());
+	//QNetworkReply* reply = namUpload->post(QNetworkRequest(url), js.toUtf8());
+	QNetworkReply* reply = namUpload->get(QNetworkRequest(url));
 }
 
 void download::GetUpdateTxtRes_callback(QNetworkReply* reply) {
@@ -758,6 +772,7 @@ void download::GetUpdateTxtRes_callback(QNetworkReply* reply) {
 		qDebug() << string;
 		DealUpdateTxt(string);
 		
+		totalNum = newupdate_list.size();
 		StartDownloadNew();
 		//StartDownload();
 	}
@@ -778,7 +793,7 @@ void download::GetuTypeResponse(QNetworkReply* reply)
 
 	if (200 != statusCodeV) {
 		QString str = QString::number(statusCodeV.toInt());
-		QMessageBox::information(NULL, "查询", "查询类型失败,httperr:" + str, QMessageBox::Yes | QMessageBox::No);
+		QMessageBox::information(NULL, QString::fromLocal8Bit("查询"), QString::fromLocal8Bit("查询类型失败,httperr:") + str, QMessageBox::Yes | QMessageBox::No);
 		return;
 	}
 
@@ -806,9 +821,7 @@ void download::GetuTypeResponse(QNetworkReply* reply)
 		if (0 == line_code) {//success.
 			//mergeupdatelist();
 			GetUpdateTxt();
-		}
-		//QMessageBox::information(NULL, "打标签响应", string, QMessageBox::Yes | QMessageBox::No);
-		//ui->textBrowser->setText(string);
+		}	
 	}
 	// Some http error received  
 	else
@@ -873,15 +886,11 @@ QString download::GetSignatureJson()
 void download::closeEvent(QCloseEvent *event)
 {
 	QMessageBox msgBox;
-
 	msgBox.setInformativeText("退出?");
-
 	QPushButton *yesButton = msgBox.addButton("是的", QMessageBox::ActionRole);
 	QPushButton *cancelButton = msgBox.addButton("取消", QMessageBox::ActionRole);
 	//QPushButton *abortButton = msgBox.addButton(QMessageBox::Abort);
-
 	msgBox.exec();
-
 	if ( msgBox.clickedButton() == (QAbstractButton*)yesButton ) {
 		// connect
 		event->accept();

@@ -63,12 +63,16 @@ protected:
 	int initfile;
 	void timerEvent(QTimerEvent *event);
 public slots:	
+	//QString FinishedOneDownload(QString rdir);
 	QString HttpSuccessCallBack(QString dir);
-	QString DownloadSize(qint64 size);
+	//QString DownloadSize(qint64 size);
 	void GetuTypeResponse(QNetworkReply* reply);
 	void GetUpdateTxtRes_callback(QNetworkReply* reply);
 private:
 	Ui::downloadClass ui;
+
+	//totalnum
+	int totalNum = 0;
 
 	//webview
 	//QWebEngineView* view;
