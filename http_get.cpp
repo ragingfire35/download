@@ -178,7 +178,7 @@ void Http::metaDataChanged() {
 						title = QString(QString::fromLocal8Bit("下载错误，参数错误%1")).arg(finalUrl);
 					}
 					else {
-						title = QString(QString::fromLocal8Bit("服务器没有这个文件！"));
+						title = QString( QString::fromLocal8Bit("服务器没有这个文件！") + mrdir );
 					}
 					IsContinue( title, reply);
 				}
@@ -221,12 +221,7 @@ void Http::onReadyRead() {
 	QByteArray ar = reply->readAll();
 	qint64 size = ar.size(); 
 	int tmp = ar.length();
-
-	//QString retVal;
-	//QMetaObject::invokeMethod(mparent, "DownloadSize", Qt::DirectConnection,
-	//	Q_RETURN_ARG(QString, retVal),
-	//	Q_ARG(qint64, size));
-
+	
 	file->write(ar);	
 	file->flush();
 }

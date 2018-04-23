@@ -13,16 +13,22 @@
 #include <QProcess>
 #include <QCloseEvent>
 #include <QMessageBox>
-
+#include <QWebEngineProfile>
+#include <QWebEngineHistory>
+#include <QThread>
+#include <QFileIconProvider>
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1600)
 # pragma execution_character_set("utf-8")
 #endif
 
+
 download::download(QWidget *parent)
 	: QMainWindow(parent)
 {
 	ui.setupUi(this);
+	this->setWindowIcon(QIcon("images/logo.ico"));
+	setWindowTitle("下载");
 	Init();
 }
 
@@ -124,24 +130,56 @@ void download::checkDate() {
 }
 void download::resizeEvent(QResizeEvent* rs)
 {	
-	QSize qs2(1024+30,768+5);
-	view->resize(qs2);
+	//QSize qs2(1024+30,768+5);
+	//view->resize(qs2);
+	
+	//QSize wsize(this->height(),this->width());
+	//this->setFixedSize(qs2);
 }
 
+QString generateRandomNumber()
+{
+	qsrand(QTime(0, 0, 0).secsTo(QTime::currentTime()));
+	//for (int i = 0; i<10; i++)
+	//{
+		//int test = qrand() % 10;
+		
+	//}
+	QString num = QString::number( qrand() );
+	return num;
+}
 
 void download::InitWebEngine() {
 	view = new HWebView(this);
-	QString url = domain+advuri;
+
+	QSize qs2(1024 + 30, 768 + 5);
+	view->resize(qs2);
+
+	QString rnd = generateRandomNumber();
+	QString url = domain + advuri+ "?ran=" + rnd;
 	view->Init(url);
 }
 
 void download::Init()
 {		
+	//Qt::WindowFlags flag = Qt::Dialog | Qt::MSWindowsFixedSizeDialogHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint | Qt::CustomizeWindowHint | Qt::WindowSystemMenuHint;
+	//diable scale.	
+	//this->setWindowFlags(flag);
+	//this->setWindowFlag(Qt::MSWindowsFixedSizeDialogHint);
+
+	//disable maxbutton
+	this->setWindowFlags(this->windowFlags()&~Qt::WindowMaximizeButtonHint);
+	
+
 	initfile = startTimer(2000);
 
 	this->ui.update_progressBar->setRange(0, 100);
 	this->ui.update_progressBar->setValue(0);
 	InitWebEngine();
+
+	//set fixed size.
+	QSize qs(this->width(),this->height());
+	this->setFixedSize(qs);
 
 	checkDate();
 	PasreConf();
@@ -334,7 +372,7 @@ void download::recusion(QString path)
 }
 
 void download::EnumlocalFile() {
-	recusion(cur_panfu+":\\");
+	recusion(cur_ms);
 }
 
 void download::mergeupdatelist() {
@@ -392,8 +430,7 @@ void download::StartDownloadNew() {
 	if (0 == newupdate_list.size()) {
 		ui.update_progressBar->setRange(0, 100);
 		ui.update_progressBar->setValue(100);
-		orderfile();
-		QMessageBox::information(NULL, "更新", "成功更新完毕！", QMessageBox::Yes);
+		startWorkInAThread();		
 		return;
 	}
 	//init progress again.
@@ -403,22 +440,6 @@ void download::StartDownloadNew() {
 }
 
 
-//void download::UpdateFile()
-//{
-//	//QList<FileObj*>::iterator it = update_fileList.begin();
-//	//for (;it!= update_fileList.end();it++) {
-//	if (0 != update_fileList.size()) {
-//		FileObj* item = update_fileList.at(0);
-//		update_fileList.pop_front();
-//		
-//		Http* pd = new Http();//need delete.
-//		QString rurl = QString(domain) + line_utype + "/" + item->rdir;
-//		QString fdir = cur_panfu + ":/" + item->rdir;
-//		pd->httpDownload(this, rurl, fdir, item->rdir);
-//	}
-//	//	qDebug() << item->rdir;
-//	//}
-//}
 
 void download::UpdateFileNew()
 {
@@ -429,7 +450,7 @@ void download::UpdateFileNew()
 		Http* pd = new Http();//need delete.
 		//QString rurl = QString(domain) + line_utype + "/" + item->rdir;
 		QString durl = QString(domain) + DOWN_FILE;
-		QString fdir = cur_panfu + ":/" + item->rdir;
+		QString fdir = cur_ms +"\\"+ item->rdir;
 		pd->httpDownload(this, durl, fdir, item->rdir, line_utype);
 	}
 	//	qDebug() << item->rdir;
@@ -452,18 +473,18 @@ void HideItem(const wchar_t* fullName,int hide)  //隐藏文件
 	}
 }
 
-void download::CreateDir(QString path) {
+void CreateDir(QString path) {
 	path.replace("/", "\\");
 
 	QDir dir(path);
-	if (dir.exists()) {		
-		QProcess p(0);
-		QString cmd = QString("rd  /S /Q %1").arg(path);
-		p.start("cmd", QStringList() << "/c" << cmd);
+	//if (dir.exists()) {		
+	//	QProcess p(0);
+	//	QString cmd = QString("rd  /S /Q %1").arg(path);
+	//	p.start("cmd", QStringList() << "/c" << cmd);
 
-		p.waitForStarted();
-		p.waitForFinished(-1);
-	}
+	//	p.waitForStarted();
+	//	p.waitForFinished(-1);
+	//}
 
 	QProcess p(0);
 	QString cmd = QString("md %1").arg(path);
@@ -473,7 +494,7 @@ void download::CreateDir(QString path) {
 	p.waitForFinished(-1);
 	QString strTemp = QString::fromLocal8Bit(p.readAllStandardOutput());
 }
-void download::MoveOneFile(QString src,QString to, int hide) {
+void WorkerThread::MoveOneFile(QString src,QString to, int hide) {
 	src.replace("/","\\");
 	to.replace("/", "\\");
 	QProcess p(0);
@@ -490,47 +511,69 @@ void download::MoveOneFile(QString src,QString to, int hide) {
 	}
 }
 
+
+void WorkerThread::ExicuteBatCmd(QString moveStr) {
+	QProcess p(0);		
+	LogText(LogFileName, moveStr);
+
+	p.start("cmd", QStringList() << "/c" << moveStr);	
+	p.waitForStarted();
+	p.waitForFinished(-1);
+
+	QString strTemp = QString::fromLocal8Bit(p.readAllStandardOutput());
+
+	LogText(LogFileName, strTemp);
+}
+
 //move cmd.
-void download::MoveBackAllFile(QString cur_panfu, QString src,QString to,int hide) {
+void WorkerThread::MoveBackAllFile(QString src,QString to) {
 	src.replace("/", "\\");
 	to.replace("/", "\\");
 
 	QDir dir(src);
 	dir.setFilter(QDir::AllEntries | QDir::Hidden);
-	//QList<QString> list;
 	QMap<int, QString> map;
-	QList<QString> dirlist;
 	foreach(QFileInfo mfi, dir.entryInfoList())
 	{
 		if (mfi.isFile()) {
 			QString kr = mfi.absoluteFilePath();
+			kr = kr.replace("/", "\\");
 
 			QFileInfo fileinfo;
 			fileinfo = QFileInfo(kr);
-
 			QString ex = fileinfo.suffix();
-
 			QString name = fileinfo.baseName();
 
-			if (-1 != subffix.indexOf(ex)) {
-				bool hasadd = false;
+			if (-1 != subffix.indexOf(ex)) {				
 				if (-1 != name.indexOf("-")) {
 					QString strnum = name.left(name.indexOf("-"));
 					if (IsDigitStr(strnum)) {
 						int index = strnum.toInt();
-						map[index] = kr;
-						hasadd = true;
+
+						QMap<int,QString>::const_iterator i = map.find(index);
+						if (i == map.end()) {
+							map[index] = kr;
+						}
+						else {
+							map[-1*index] = kr;
+						}						
 					}
 				}
 				else if (IsDigitStr(name)) {
 					int index = name.toInt();
-					map[index] = kr;
-					hasadd = true;
+
+					QMap<int, QString>::const_iterator i = map.find(index);
+					if (i == map.end()) {
+						map[index] = kr;
+					}
+					else {
+						map[-1 * index] = kr;
+					}					
 				}
-				if (hasadd = true&&SRC_UNHIDE == hide) {
-					std::wstring str = kr.toStdWString();
-					HideItem(str.c_str(), hide);
-				}
+				//if (hasadd = true&&SRC_UNHIDE == hide) {
+				//	std::wstring str = kr.toStdWString();
+				//	HideItem(str.c_str(), hide);
+				//}
 			}
 		}
 		else {
@@ -538,32 +581,44 @@ void download::MoveBackAllFile(QString cur_panfu, QString src,QString to,int hid
 				continue;
 			}
 			QString kr = mfi.absoluteFilePath();
+			kr = kr.replace("/", "\\");
+
 			QDir curdir(kr);
 			QString name = curdir.dirName();
-			bool hasadd = false;
+
 			if (-1 != name.indexOf("-")) {
 				QString strnum = name.left(name.indexOf("-"));
 				if (IsDigitStr(strnum)) {
 					int index = strnum.toInt();
-					map[index] = kr;
-					dirlist.append(kr);//for recu;
-					hasadd = true;
+					
+					QMap<int, QString>::const_iterator i = map.find(index);
+					if (i == map.end()) {
+						map[index] = kr;
+					}
+					else {
+						map[-1 * index] = kr;
+					}
 				}
 			}
 			else if (IsDigitStr(name)) {
-				int index = name.toInt();
-				map[index] = kr;
-				dirlist.append(kr);//for recu;
-				hasadd = true;
-			}
-			if (hasadd) {
-				if (SRC_UNHIDE == hide) {
-					std::wstring str = kr.toStdWString();
-					HideItem(str.c_str(), hide);
+				int index = name.toInt();			
+
+				QMap<int, QString>::const_iterator i = map.find(index);
+				if (i == map.end()) {
+					map[index] = kr;
 				}
-				//create dir
-				CreateDir(to + name + "\\");
+				else {
+					map[-1 * index] = kr;
+				}
 			}
+			//if (hasadd) {
+			//	if (SRC_UNHIDE == hide) {
+			//		std::wstring str = kr.toStdWString();
+			//		HideItem(str.c_str(), hide);
+			//	}
+			//	//create dir
+			//	//CreateDir(to + name + "\\");
+			//}
 		}
 	}//end forreach
 	 //modified creatime.
@@ -575,49 +630,130 @@ void download::MoveBackAllFile(QString cur_panfu, QString src,QString to,int hid
 		QFileInfo mfi(sec);
 		bool isfile = mfi.isFile();
 		QString kr = mfi.absoluteFilePath();
+		kr = kr.replace("/", "\\");
+
+		QString NewToFullfileName = to + "\\" + mfi.fileName();
 
 		if (isfile) {
-			MoveOneFile(kr, to + mfi.fileName(),hide);
+
+			std::wstring srcstd = kr.toStdWString();
+			std::wstring tostd = NewToFullfileName.toStdWString();
+			MoveFile(srcstd.c_str(),tostd.c_str() );
+			//HideItem(tostd.c_str(), DES_HIDED);
 		}
 		else {
 			QDir curdir(kr);
 			QString name = curdir.dirName();
-			MoveBackAllFile(cur_panfu, kr, to + name + "\\",hide);
-			if (DES_HIDED == hide) {
-				QString tmp = to + name + "\\";
-				std::wstring str = tmp.toStdWString();
-				HideItem(str.c_str(), hide);
+			QString newTo = to + "\\" + name;
+			
+			QString cmd = QString("md %1").arg(newTo);
+			ExicuteBatCmd( cmd );
+
+			MoveBackAllFile(kr, newTo);
+						
+			QString cmd1 = QString("rd /s /q %2").arg(kr);
+			ExicuteBatCmd(cmd1);
+			//if (DES_HIDED == hide) {
+			//	QString tmp = to + name + "\\";
+			//	std::wstring str = tmp.toStdWString();
+			//	HideItem(str.c_str(), hide);
+			//}
+		}
+	}
+}
+
+void WorkerThread::DelBackMb(QString path) {
+	QProcess p(0);
+	QString cmd = QString("rd  /S /Q %1").arg(path);	
+	ExicuteBatCmd( cmd );
+}
+
+void WorkerThread::MoveEachMS_MB(QString src,QString to)
+{
+	src.replace("/", "\\");
+	to.replace("/", "\\");
+
+ReDir:
+	QDir dir(src);
+	dir.setFilter(QDir::AllEntries | QDir::Hidden);
+	QMap<int, QString> map;
+	QList<QString> dirlist;
+	int size = dir.entryInfoList().size();
+	
+	foreach(QFileInfo mfi, dir.entryInfoList())
+	{
+		if (mfi.isFile()) {
+			QString kr = mfi.absoluteFilePath();
+			kr = kr.replace("/", "\\");
+
+			QFileInfo fileinfo;
+			fileinfo = QFileInfo(kr);
+			QString fileName = fileinfo.fileName(); //fileinfo.baseName();
+			
+			QString cmd =  QString("move /y %1\\* %2").arg(src).arg(to);
+			ExicuteBatCmd(cmd);
+			goto ReDir;
+		}
+		else {
+			if (mfi.fileName() == "." || mfi.fileName() == "..") {
+				continue;
+			}
+			QString kr = mfi.absoluteFilePath();
+			kr = kr.replace("/", "\\");
+
+			QDir curdir(kr);
+			QString name = curdir.dirName();
+
+			QDir dir(to + "\\" + name);
+			if ( dir.exists() ) {
+				MoveEachMS_MB( kr, to + "\\" + name);
+				
+				QString cmd = QString("rd /s /q %1").arg(kr);
+				ExicuteBatCmd(cmd);
+			}
+			else {				
+				QString cmd = QString("move /y %1 %2").arg(kr).arg(to + "\\" + name);
+				ExicuteBatCmd(cmd);
 			}
 		}
-		//std::wstring ws = sec.toStdWString();//you can't use sec.toStdWString.data() directly.
-		//const wchar_t* wt = ws.c_str();
-		//ModifiedCreateTime(wt, isfile, i);		
+	}//end forreach
+}
+void WorkerThread::move_ms_to_mb()
+{
+	QDir dir(cur_mb);
+	if ( dir.exists( ) ) {
+		MoveEachMS_MB(cur_ms,cur_mb);
+		return;
 	}
-	//end
-	//QList<QString>::iterator it = dirlist.begin();
-	//for (; it != dirlist.end(); it++) {
-	//	QString item = *it;
-	//	ResueAllFile(item);
-	//}
-}
-
-void DelBackMb(QString path) {
 	QProcess p(0);
+	QString cmd = QString("move /Y %1 %2").arg(cur_ms).arg(cur_mb);
+	ExicuteBatCmd(cmd);
 
-	QString cmd = QString("rd  /S /Q %1").arg(path);
-	p.start("cmd", QStringList() << "/c" << cmd);
-
-	p.waitForStarted();
-	p.waitForFinished(-1);
-	QString strTemp = QString::fromLocal8Bit(p.readAllStandardOutput());
 }
 
-void download::orderfile()
-{	
-	CreateDir(cur_panfu + ":\\" + "mb" + "\\");
-	MoveBackAllFile(cur_panfu, cur_panfu + ":\\", cur_panfu + ":\\" + "mb" + "\\",SRC_UNHIDE);
-	MoveBackAllFile(cur_panfu, cur_panfu + ":\\" + "mb" + "\\", cur_panfu + ":\\",DES_HIDED);
-	DelBackMb(cur_panfu + ":\\" + "mb" + "\\");
+void WorkerThread::move_mb_to_ms(){	
+	MoveBackAllFile(cur_mb, cur_ms);	
+}
+
+void WorkerThread::orderfile()
+{		
+	std::wstring ms = cur_ms.toStdWString();
+	HideItem(ms.c_str(), SRC_UNHIDE);
+	move_ms_to_mb();
+	CreateDir(cur_ms);
+	move_mb_to_ms();
+	DelBackMb(cur_mb);
+	HideItem(ms.c_str(), DES_HIDED);
+}
+
+void DelThread::DelFile() {
+	QList<QString>::iterator it = del_lst.begin();
+	for (; it != del_lst.end(); it++) {
+		QString item = *it;
+		QString fullName = cur_ms + "\\" + item;
+		std::wstring str = fullName.toStdWString();
+		bool rs = DeleteFile(str.c_str());
+	}
 }
 
 bool download::IsInLst(QList<FileObj*>& lst,QString dir) {
@@ -655,16 +791,35 @@ bool download::RemoveLst(QList<FileObj*>& lst, QString dir) {
 //
 //	return "";
 //}
+
+void download::startWorkInAThread()
+{
+	WorkerThread *workerThread = new WorkerThread(cur_panfu,cur_ms,cur_mb,subffix);
+	connect(workerThread, &WorkerThread::OrderFinished, this, &download::OrderFinished);
+	connect(workerThread, &WorkerThread::finished, workerThread, &QObject::deleteLater);
+	workerThread->start();
+}
+
+void download::startDelThread()
+{
+	DelThread *workerThread = new DelThread(cur_panfu, cur_ms, cur_mb, subffix, del_lst);
+	workerThread->start();
+}
+
+
+
+void download::OrderFinished(const QString &) {
+	ui.update_progressBar->setRange(0, 100);
+	ui.update_progressBar->setValue(100);
+	QMessageBox::information(NULL, "更新", "成功更新完毕！", QMessageBox::Yes);
+}
 QString download::HttpSuccessCallBack(QString dir) {
 
 	if (true == IsInLst(newupdate_list,dir)) {
 		RemoveLst(newupdate_list,dir);
 	}
-	if (0 == newupdate_list.size()) {
-		orderfile();
-		ui.update_progressBar->setRange(0, 100);
-		ui.update_progressBar->setValue(100);
-		QMessageBox::information(NULL, "更新", "成功更新完毕！", QMessageBox::Yes | QMessageBox::No);
+	if (0 == newupdate_list.size()) {		
+		startWorkInAThread();
 	}
 	else {
 		//change progress
@@ -732,6 +887,22 @@ void download::DealUpdateTxt(QString str) {
 					}
 				}
 			}			
+		}
+		if (jsonObject.contains("deletelist")) {
+			QJsonValue value = jsonObject.value("deletelist");
+			if (value.isArray()) {
+				QJsonArray ar = value.toArray();
+				for (int i = 0; i < ar.size(); i++) {
+					QJsonValue job = ar.at(i);  // 遍历 jsonarray 数组，把每一个对象转成 json 对象
+					if (job.isString()) {
+						QString str = job.toString();
+						del_lst.append(str);
+					}
+				}
+			}
+		}
+		if (del_lst.size() > 0) {
+			startDelThread();
 		}
 	}
 }
@@ -857,6 +1028,8 @@ void download::ReadSignatue()
 	QString runPath = QCoreApplication::applicationDirPath();
 	QChar curpf = runPath.at(0);
 	cur_panfu = curpf;
+	cur_ms = cur_panfu+":\\music";
+	cur_mb = cur_panfu + ":\\musictls";
 	FindAllDrivers(sigmap);
 	for (std::map<std::wstring, ULONG>::iterator it = sigmap.begin(); it != sigmap.end(); it++)
 	{
@@ -898,8 +1071,7 @@ void download::closeEvent(QCloseEvent *event)
 	else if (msgBox.clickedButton() == (QAbstractButton*)cancelButton) {
 		// abort
 		event->ignore();
-	}
-	
+	}	
 	//event->ignore();
 }
 
@@ -907,10 +1079,8 @@ void download::closeEvent(QCloseEvent *event)
 void download::timerEvent(QTimerEvent *event)
 {
 	if (initfile == event->timerId()) {
-
-		//EnumlocalFile();
-		//test
-		//orderfile();
+		//startWorkInAThread();		
+		//killTimer(initfile);
 		//return;
 		GetuType();
 		killTimer(initfile);

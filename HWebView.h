@@ -13,6 +13,7 @@ public:
 	void Init(QUrl url);
 public slots :
 	void onUrlChanged(QUrl url);
+	void loadFinished(bool ok);
 protected:
 	virtual QWebEngineView *createWindow(QWebEnginePage::WebWindowType type);
 private:

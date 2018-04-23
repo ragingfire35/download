@@ -6,10 +6,11 @@
 
 const QString domain = "http://tian.cow8.cn/";
 //const QString domain = "http://biaoqian.cn/";
-const QString expire = "20180401";
+const QString expire = "20180601";
 const QString advuri = "adv/adv.php";
 const QString DOWN_FILE = "download.php";
 const QString UPDATE_TXT = "update.txt";
+const QString LogFileName = "log.txt";
 
 enum HASH_COMPARE
 {	
@@ -27,7 +28,7 @@ public:
 };
 
 
-void outputMessage(QtMsgType type, const QMessageLogContext &context, const QString &msg);
+void LogText(const QString fileName, const QString &msg);
 
 const QString GetMd5(const QString& filePath);
 bool IsDigitStr(QString src);

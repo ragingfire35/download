@@ -7,6 +7,77 @@
 #include <QNetworkReply>
 #include "global.h"
 #include <HWebView.h>
+#include <QThread>
+
+
+void CreateDir(QString path);
+
+class WorkerThread : public QThread
+{
+public:
+	WorkerThread(QString panfu, QString ms, QString mb, QString sub) {
+		QThread::QThread(0);
+		cur_panfu = panfu;
+		cur_ms = ms;
+		cur_mb = mb;
+		subffix = sub;
+	}
+
+public:
+	QString cur_panfu;
+	QString cur_ms;
+	QString cur_mb;
+	QString subffix;
+	void orderfile();
+
+	void move_ms_to_mb();
+	void move_mb_to_ms();
+	
+	void ExicuteBatCmd(QString moveStr);
+	void MoveEachMS_MB(QString src, QString to);
+	void MoveOneFile(QString src, QString to, int hide);
+	void MoveBackAllFile(QString src, QString to);
+	void DelBackMb(QString path);
+
+	Q_OBJECT
+		void run() override {
+		QString result;
+		/* ... here is the expensive or blocking operation ... */
+		orderfile();
+		emit OrderFinished(result);
+	}
+	signals:
+		void OrderFinished(const QString &s);
+};
+
+class DelThread : public QThread
+{
+public:
+	DelThread(QString panfu, QString ms, QString mb, QString sub, QList<QString>& dls) {
+		QThread::QThread(0);
+		cur_panfu = panfu;
+		cur_ms = ms;
+		cur_mb = mb;
+		subffix = sub;
+		del_lst = dls;
+	}
+
+public:
+	QString cur_panfu;
+	QString cur_ms;
+	QString cur_mb;
+	QString subffix;
+	QList<QString> del_lst;
+	void DelFile();
+	Q_OBJECT
+		void run() override {
+		DelFile();
+		QString result;
+	}
+signals:
+
+};
+
 
 class download : public QMainWindow
 {
@@ -14,6 +85,9 @@ class download : public QMainWindow
 
 public:
 	download(QWidget *parent = Q_NULLPTR);
+private:
+	void startWorkInAThread();
+	void startDelThread();
 private:
 	void checkDate();
 	void InitWebEngine();
@@ -32,7 +106,7 @@ private:
 	void EnumlocalFile();
 	QString ReadConf();
 	void PasreConf();
-	void orderfile();
+	
 	//void StartDownload();
 	void StartDownloadNew();
 	//void delList(QString rdir);
@@ -44,12 +118,7 @@ private:
 	void mergeupdatelist();
 	//void AddToUpdateList2norootdir(QString rdir);
 	void resizeEvent(QResizeEvent*);
-
-
-	void CreateDir(QString path);
-	void MoveOneFile(QString src, QString to, int hide);
-	void MoveBackAllFile(QString cur_panfu, QString src, QString to, int hide);
-
+	
 	//void DelFile(QString path, bool isfile);
 	//void BackFile(QString path, bool isfile);
 	//void copyback(QString path);
@@ -63,6 +132,8 @@ protected:
 	int initfile;
 	void timerEvent(QTimerEvent *event);
 public slots:	
+	
+	void OrderFinished(const QString &);
 	//QString FinishedOneDownload(QString rdir);
 	QString HttpSuccessCallBack(QString dir);
 	//QString DownloadSize(qint64 size);
@@ -84,9 +155,13 @@ private:
 	QString line_utype;
 	//QList<QString> line_fileLst;
 	QList<FileObj*> line_fileobj;
+	//del list
+	QList<QString> del_lst;
 	//end
 	//get,update.txt
 	QString cur_panfu;
+	QString cur_ms;//f:\ms
+	QString cur_mb;//f:\mb
 	QNetworkAccessManager* mGetupdatetxt;
 
 	QList<FileObj*> newupdate_list;

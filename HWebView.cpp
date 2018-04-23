@@ -11,10 +11,11 @@ HWebView::~HWebView() {
 }
 
 void HWebView::Init(QUrl url) {
-
+		
 	this->load(QUrl(url));
 	this->show();
 	connect(this, SIGNAL(urlChanged(QUrl)), this, SLOT(onUrlChanged(QUrl)));
+	//connect(this, SIGNAL(loadFinished(bool)), this, SLOT(loadFinished(bool)));
 }
 
 
@@ -37,4 +38,9 @@ QWebEngineView *HWebView::createWindow(QWebEnginePage::WebWindowType type) {
 
 	Q_UNUSED(type);
 	return this;
+}
+
+void HWebView::loadFinished(bool ok) {
+	int k = 0;
+	k++;
 }
