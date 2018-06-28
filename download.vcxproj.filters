@@ -91,5 +91,22 @@
     <ClInclude Include="getnumbypanfu.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="GeneratedFiles\Debug\download.moc">
+      <Filter>Generated Files</Filter>
+    </None>
+    <None Include="GeneratedFiles\Release\download.moc">
+      <Filter>Generated Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="download.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="images\logo.ico" />
   </ItemGroup>
 </Project>

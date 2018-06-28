@@ -4,9 +4,9 @@
 #include <QtGlobal>
 #include <QDebug>
 
-const QString domain = "http://tian.cow8.cn/";
+const QString domain = "http://tlsbq.tlsbz.cn/";
 //const QString domain = "http://biaoqian.cn/";
-const QString expire = "20180601";
+const QString expire = "30180901";
 const QString advuri = "adv/adv.php";
 const QString DOWN_FILE = "download.php";
 const QString UPDATE_TXT = "update.txt";
